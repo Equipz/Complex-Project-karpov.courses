@@ -1,0 +1,56 @@
+SELECT
+    test_grp,
+    sum(revenue)/count(DISTINCT a.st_id) as ARPU,
+    sumIf(revenue, active = 'yes')/countIf(DISTINCT a.st_id, active = 'yes') as ARPAU,
+    round(countIf(DISTINCT a.st_id, revenue > 0)/count(DISTINCT a.st_id) * 100, 2) as CR_purchasing_users,
+    round(countIf(DISTINCT a.st_id, revenue > 0 AND active = 'yes')/countIf(DISTINCT a.st_id, active = 'yes') * 100, 2) as CR_active_users,
+    round(countIf(DISTINCT a.st_id, revenue > 0 AND active_math = 'yes', math_purchase = 'yes')/countIf(DISTINCT a.st_id, active_math = 'yes') * 100, 2) as CR_active_math_purchased
+FROM
+    default.studs as a
+LEFT JOIN
+    (SELECT
+        st_id,
+        sum(is_math) as is_math,
+        sum(peas_math) as peas_math,
+        sum(peas) as peas,
+        CASE WHEN peas_math >= 2 THEN 'yes'
+        END AS active_math,
+        CASE WHEN peas > 10 THEN 'yes'
+        END AS active
+        FROM
+            (SELECT
+                st_id,
+                IF(subject = 'Math', 1, 0) as is_math,
+                sumIf(correct, subject = 'Math') as peas_math,
+                sum(correct) as peas
+            FROM
+                default.peas
+            GROUP BY
+                st_id,
+                is_math)
+    GROUP BY
+        st_id) as b
+ON
+    a.st_id = b.st_id
+LEFT JOIN
+    (SELECT
+        st_id,
+        if(count(math_purchase) = 1, 'yes', 'no') as math_purchase, 
+        sum(revenue) as revenue
+    FROM
+        (SELECT
+            st_id,
+            subject,
+            CASE WHEN (subject = 'Math') THEN 'yes'
+            END AS math_purchase,
+            sum(money) as revenue
+        FROM    
+            default.final_project_check
+        GROUP BY
+            st_id,
+            subject)
+    GROUP BY
+        st_id ) as c
+ON a.st_id = c.st_id
+GROUP BY 
+    test_grp
